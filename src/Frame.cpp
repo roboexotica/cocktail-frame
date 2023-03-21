@@ -19,6 +19,9 @@
 
 namespace frame {
 
+    bool dispensing;
+    bool motorActive;
+
     // Static Functions
     // ---------------------------------------------------------------------------------------------------------------------------
 
@@ -32,7 +35,7 @@ namespace frame {
       pinMode(LED_BUILTIN, OUTPUT);
       pinMode(LED_EL_ESCUDO, OUTPUT);
       pinMode(PIN_MOTOR, OUTPUT);
-      digitalWrite(LED_BUILTIN, LOW);         // Both LEDs are active HIGH
+      digitalWrite(LED_BUILTIN, LOW);         // Both status LEDs are active HIGH
       digitalWrite(LED_EL_ESCUDO, LOW);
       digitalWrite(PIN_MOTOR, LOW);
 
@@ -44,55 +47,45 @@ namespace frame {
       Serial.println("\nCocktail Frame © Roboexotica 2023");
     }
 
-    void setupFrame() {
-      // Initialise Frame instance which will handle the logic of this device.
-      frame::instance = new Frame();
-      Timer.setInterval(frame::instance, FRAME_TIME, -1, 100);
+    void setupTimers() {
+      Timer.setInterval(onTick, FRAME_TIME, -1, 100);
     }
 
     void setup() {
       setupPins();
       setupSerial();
-      setupFrame();
+      setupTimers();
     }
 
-    // Forward loop to Timer, which will in turn call Frame's loop function after FRAME_TIME has passed.
+    // Forward loop to Timer, which in turn calls 'onTick' every FRAME_TIME milliseconds.
     void loop() {
       Timer.loop();
     }
 
-    // The next functions are static callbacks to instance functions used by the Timer library.
-    // (Because, I haven't figured out how to call the instance function directly.)
-    void setDispensing(bool active) {
-      frame::instance->setDispensing(active);
-    }
-
-    void setMotor(bool active) {
-      frame::instance->setMotor(active);
-    }
-
-    // Frame de/constructor
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    Frame::Frame() : Timeable(), buttonTimeout(0), buttonState(HIGH), dispensing(false), motorActive(false) {
-      setDispensing(false);
-      setMotor(false);
-    }
-
-    Frame::~Frame() = default;
-
     // Frame functions
     // ---------------------------------------------------------------------------------------------------------------------------
 
-    void Frame::loop() {
-      // Check if a change in button state occurred and the state is now "pressed" (LOW).
-      if (checkButton() && !buttonState) {
-        onButton();
+    /**
+     * "loop" function is called every FRAME_TIME milliseconds.
+     */
+    void onTick() {
+      // Check if a change in button state occurred and call 'onButton' with the result.
+      bool state;
+      if (checkButton(PIN_BUTTON, state)) {
+        onButton(state);
       }
     }
 
-    // Returns true, if the button state changed
-    bool Frame::checkButton() {
+    /**
+     * Checks if the 'pin' changed state and returns 'true' in that case.
+     * 'state' will hold the new pin state, but only if a change has been detected.
+     */
+    bool checkButton(uint8_t pin, bool &state) {
+
+      // Store static button properties.
+      static uint32_t buttonTimeout = 0;
+      static bool buttonState = HIGH;
+
       uint32_t now = millis();
 
       // If button is still on timeout, return "no change" (false).
@@ -100,22 +93,25 @@ namespace frame {
         return false;
       }
 
-      bool value = digitalRead(PIN_BUTTON);
+      state = digitalRead(pin);
 
       // If there is no change, return false.
-      if (value == buttonState) {
+      if (state == buttonState) {
         return false;
       }
 
-      // Button state has changed. Store new button state and set a timeout.
-      buttonState = value;
+      // Button state has changed. Store the new button state and set a timeout.
+      buttonState = state;
       buttonTimeout = now + BUTTON_TIMEOUT;
       return true;
     }
 
-    void Frame::onButton() {
-      if (!dispensing) {
-        // Start dispensing
+    /**
+     * Button changed state to 'state'.
+     */
+    void onButton(bool state) {
+      // Start dispensing if button state is 'LOW' and we're not dispensing already.
+      if (!state && !dispensing) {
         setDispensing(true);
         setMotor(true);
         Timer.setTimeout(reinterpret_cast<TimerCallback1>(frame::setMotor), (uintptr_t) false, 1000);
@@ -123,29 +119,29 @@ namespace frame {
       }
     }
 
-    void Frame::setDispensing(bool active) {
+    void setDispensing(bool active) {
       dispensing = active;
       setAllChannels(active);
       Serial.print("Dispensing ");
       Serial.println(active ? "true" : "false");
     }
 
-    void Frame::setMotor(bool active) {
+    void setMotor(bool active) {
       motorActive = active;
       digitalWrite(LED_EL_ESCUDO, active);
       Serial.print("MotorActive ");
       Serial.println(active ? "true" : "false");
     }
 
-    void Frame::setAllChannels(bool active) {
+    void setAllChannels(bool active) {
       // Set all eight EL channels (pins 2 through 9)
       for (int i = EL_CHANNEL_A; i <= EL_CHANNEL_H; i++) {
         digitalWrite(i, active);
       }
     }
 
-    void Frame::blink() {
-      static int status = 0;
+    void blink() {
+      static bool status = LOW;
       setAllChannels(status);
       digitalWrite(LED_EL_ESCUDO, status);   // blink both status LEDs
       digitalWrite(LED_BUILTIN, status);
