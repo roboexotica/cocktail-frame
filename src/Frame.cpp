@@ -1,5 +1,8 @@
 #include "../include/Frame.h"
 #include <Arduino.h>
+#include <Timer.h>
+
+#define FRAME_TIME 100       // FPS = 1000 / FRAME_TIME
 
 #define LED_EL_ESCUDO 10
 #define PIN_MOTOR 11
@@ -10,13 +13,14 @@ namespace frame {
 
     void setup() {
       frame::instance = new Frame();
+      Timer.setInterval(frame::instance, FRAME_TIME, -1, 100);
     }
 
     void loop() {
-      frame::instance->loop();
+      Timer.loop();
     }
 
-    Frame::Frame() {
+    Frame::Frame() : Timeable() {
       // Initialize the El Escudo channels A to F (2-9).
       for (int i = 2; i <= 9; i++) {
         pinMode(i, OUTPUT);
@@ -27,7 +31,7 @@ namespace frame {
       pinMode(PIN_BUTTON, INPUT_PULLUP);   // Button
     }
 
-    Frame::~Frame() {}
+    Frame::~Frame() = default;
 
     void Frame::loop() {
 
@@ -35,9 +39,7 @@ namespace frame {
 
       // Step through all eight EL channels (pins 2 through 9)
       for (int i = 2; i <= 9; i++) {
-        digitalWrite(i, HIGH);    // turn the EL channel on
-        delay(100);                   // wait for 1/10 second
-        digitalWrite(i, LOW);     // turn the EL channel off
+        digitalWrite(i, status);             // flip the channel
       }
 
       digitalWrite(LED_EL_ESCUDO, status);   // blink both status LEDs
