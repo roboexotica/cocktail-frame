@@ -17,6 +17,7 @@ namespace frame {
     void setup();
     void loop();
 
+    void onStatus(bool value);
     void onTick();
     void onButton(bool state);
     bool checkButton(uint8_t pin, bool &state);
