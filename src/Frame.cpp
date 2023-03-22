@@ -4,9 +4,9 @@
 
 #define FRAME_TIME 20               // FPS = 1000 / FRAME_TIME
 #define BUTTON_TIMEOUT 100          // 100ms
-#define BLINK_TIME_DEFAULT 500
+#define BLINK_TIME_DEFAULT 500      // 2 different blink times depending on dispensing status
 #define BLINK_TIME_DISPENSING 200
-#define EL_EFFECT_TIME 100
+#define EL_EFFECT_TIME 100          // EL channels effect frame time
 
 #define EL_CHANNEL_A 2
 #define EL_CHANNEL_B 3
@@ -17,10 +17,10 @@
 #define EL_CHANNEL_G 8
 #define EL_CHANNEL_H 9
 #define EL_CHANNELS 8
-#define LED_STATUS 13         // == LED_BUILTIN
+#define LED_STATUS 10         // El Escudo Dos LED
 #define PIN_MOTOR 11          // Relays for vending
-#define PIN_VALVE 10          // Status LED on the EL Escudo.
-#define PIN_BUTTON 12
+#define PIN_VALVE 12          // -||-
+#define PIN_BUTTON 19
 
 
 namespace frame {
@@ -37,8 +37,8 @@ namespace frame {
 
     void setupPins() {
       // Initialize the El Escudo channels A to F (2-9).
-      for (int i = EL_CHANNEL_A; i <= EL_CHANNEL_H; i++) {
-        pinMode(i, OUTPUT);
+      for (int i = 0; i < EL_CHANNELS; i++) {
+        pinMode(elChannels[i], OUTPUT);
       }
       setAllChannels(false);
 
@@ -129,8 +129,8 @@ namespace frame {
      * Button changed state to 'state'.
      */
     void onButton(bool state) {
-      // Start dispensing if button state is 'LOW' and we're not dispensing already.
-      if (!state && !dispensing) {
+      // Start dispensing if button state switches to HIGH, and we're not dispensing already.
+      if (state && !dispensing) {
         setDispensing(true);
         setMotor(true);
         Timer.setTimeout(reinterpret_cast<TimerCallback1>(setMotor), (uintptr_t) false, 1000);
@@ -154,9 +154,9 @@ namespace frame {
     }
 
     void setAllChannels(bool active) {
-      // Set all eight EL channels (pins 2 through 9)
-      for (int i = EL_CHANNEL_A; i <= EL_CHANNEL_H; i++) {
-        digitalWrite(i, active);
+      // Set all EL channels to 'active'.
+      for (int i = 0; i < EL_CHANNELS; i++) {
+        digitalWrite(elChannels[i], active);
       }
     }
 
