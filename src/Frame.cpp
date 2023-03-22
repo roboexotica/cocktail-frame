@@ -96,6 +96,19 @@ namespace frame {
     }
 
     /**
+     * Button changed state to 'state'.
+     */
+    void onButton(bool state) {
+      // Start dispensing if button state switches to HIGH, and we're not dispensing already.
+      if (state && !dispensing) {
+        setDispensing(true);
+        setMotor(true);
+        Timer.setTimeout(reinterpret_cast<TimerCallback1>(setMotor), (uintptr_t) false, 1000);
+        Timer.setTimeout(reinterpret_cast<TimerCallback1>(setDispensing), (uintptr_t) false, 2000);
+      }
+    }
+
+    /**
      * Checks if the 'pin' changed state and returns 'true' in that case.
      * 'state' will hold the new pin state, but only if a change has been detected.
      */
@@ -123,19 +136,6 @@ namespace frame {
       buttonState = state;
       buttonTimeout = now + BUTTON_TIMEOUT;
       return true;
-    }
-
-    /**
-     * Button changed state to 'state'.
-     */
-    void onButton(bool state) {
-      // Start dispensing if button state switches to HIGH, and we're not dispensing already.
-      if (state && !dispensing) {
-        setDispensing(true);
-        setMotor(true);
-        Timer.setTimeout(reinterpret_cast<TimerCallback1>(setMotor), (uintptr_t) false, 1000);
-        Timer.setTimeout(reinterpret_cast<TimerCallback1>(setDispensing), (uintptr_t) false, 2000);
-      }
     }
 
     void setDispensing(bool active) {
