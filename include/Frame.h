@@ -25,6 +25,7 @@ namespace frame {
     void setDispensing(bool active);
     void setMotor(bool active);
     void setAllChannels(bool active);
+    void onElEffect();
 
 } // frame
 

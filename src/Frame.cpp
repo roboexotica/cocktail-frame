@@ -6,6 +6,7 @@
 #define BUTTON_TIMEOUT 100          // 100ms
 #define BLINK_TIME_DEFAULT 500
 #define BLINK_TIME_DISPENSING 200
+#define EL_EFFECT_TIME 100
 
 #define EL_CHANNEL_A 2
 #define EL_CHANNEL_B 3
@@ -15,6 +16,7 @@
 #define EL_CHANNEL_F 7
 #define EL_CHANNEL_G 8
 #define EL_CHANNEL_H 9
+#define EL_CHANNELS 8
 #define LED_STATUS 13         // == LED_BUILTIN
 #define PIN_MOTOR 11          // Relays for vending
 #define PIN_VALVE 10          // Status LED on the EL Escudo.
@@ -23,9 +25,12 @@
 
 namespace frame {
 
+    uint32_t statusBlinkTime = BLINK_TIME_DEFAULT;
+    uint32_t choreography = 0;
+    uint8_t elChannels[EL_CHANNELS] = {EL_CHANNEL_A, EL_CHANNEL_B, EL_CHANNEL_C, EL_CHANNEL_D,
+                                       EL_CHANNEL_E, EL_CHANNEL_F, EL_CHANNEL_G, EL_CHANNEL_H};
     bool dispensing = false;
     bool motorActive = false;
-    uint32_t statusBlinkTime = BLINK_TIME_DEFAULT;
 
     // Static Functions
     // ---------------------------------------------------------------------------------------------------------------------------
@@ -54,6 +59,7 @@ namespace frame {
 
     void setupTimers() {
       Timer.setInterval(onTick, FRAME_TIME, -1, 100);
+      Timer.setInterval(onElEffect, EL_EFFECT_TIME, -1);
     }
 
     void setup() {
@@ -71,11 +77,10 @@ namespace frame {
     // ---------------------------------------------------------------------------------------------------------------------------
 
     /**
-     * Blink off and on for the time submitted, and forward (1000 - millis) to the opposite function.
+     * Blink off and on for the 'statusBlinkTime'.
      */
     void onStatus(bool value) {
       digitalWrite(LED_STATUS, value);
-      setAllChannels(value);
       Timer.setTimeout(reinterpret_cast<TimerCallback1>(onStatus), (uintptr_t) (!value), statusBlinkTime);
     }
 
@@ -137,7 +142,6 @@ namespace frame {
       dispensing = active;
       digitalWrite(PIN_VALVE, !active);   // Relays are active low
       statusBlinkTime = active ? BLINK_TIME_DISPENSING : BLINK_TIME_DEFAULT;
-      setAllChannels(active);
       Serial.print("Dispensing ");
       Serial.println(active ? "start" : "end");
     }
@@ -156,12 +160,14 @@ namespace frame {
       }
     }
 
-    void blink() {
-      static bool status = LOW;
-      setAllChannels(status);
-      digitalWrite(LED_STATUS, status);   // blink both status LEDs
-      digitalWrite(LED_BUILTIN, status);
-      status = !status;
+    /**
+     * A rudimentary light show by switching on 1 EL channel at a time.
+     */
+    void onElEffect() {
+      for (int i = 0; i < EL_CHANNELS; i++) {
+        digitalWrite(elChannels[i], i == choreography % EL_CHANNELS);
+      }
+      choreography++;
     }
 
 } // frame
