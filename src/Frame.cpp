@@ -8,7 +8,7 @@
 #define BLINK_TIME_DISPENSING 200
 #define EL_EFFECT_TIME 100          // EL channels effect frame time
 
-#define EL_CHANNEL_A 2
+#define EL_CHANNEL_A 2        // This is also an interrupt pin.
 #define EL_CHANNEL_B 3
 #define EL_CHANNEL_C 4
 #define EL_CHANNEL_D 5
@@ -21,7 +21,11 @@
 #define PIN_MOTOR 11          // Relays for vending
 #define PIN_VALVE 12          // -||-
 #define PIN_BUTTON 19
+#define PIN_COIN_PULSE 18     // Problem: Arduino only has interrupts on pin 2 & 3. But they're already occupied by the EL board :-/
 
+// Uncomment 'COCKTAIL_PRICE' to enable monetization.
+//#define COCKTAIL_PRICE 100
+#define COIN_PULSE_VALUE 10
 
 namespace frame {
 
@@ -29,6 +33,7 @@ namespace frame {
     uint32_t choreography = 0;
     uint8_t elChannels[EL_CHANNELS] = {EL_CHANNEL_A, EL_CHANNEL_B, EL_CHANNEL_C, EL_CHANNEL_D,
                                        EL_CHANNEL_E, EL_CHANNEL_F, EL_CHANNEL_G, EL_CHANNEL_H};
+    volatile uint32_t balance = 0;
     bool dispensing = false;
     bool motorActive = false;
 
@@ -57,6 +62,10 @@ namespace frame {
       Serial.println("\nCocktail Frame © Roboexotica 2023");
     }
 
+    void setupInterrupts() {
+      attachInterrupt(digitalPinToInterrupt(PIN_COIN_PULSE), onCoinPulse, FALLING);
+    }
+
     void setupTimers() {
       Timer.setInterval(onTick, FRAME_TIME, -1, 100);
       Timer.setInterval(onElEffect, EL_EFFECT_TIME, -1);
@@ -65,6 +74,7 @@ namespace frame {
     void setup() {
       setupPins();
       setupSerial();
+      setupInterrupts();
       setupTimers();
     }
 
@@ -99,13 +109,22 @@ namespace frame {
      * Button changed state to 'state'.
      */
     void onButton(bool state) {
-      // Start dispensing if button state switches to HIGH, and we're not dispensing already.
-      if (state && !dispensing) {
-        setDispensing(true);
-        setMotor(true);
-        Timer.setTimeout(reinterpret_cast<TimerCallback1>(setMotor), (uintptr_t) false, 1000);
-        Timer.setTimeout(reinterpret_cast<TimerCallback1>(setDispensing), (uintptr_t) false, 2000);
+      // Button up
+      if (state) {
+        // Start dispensing if button state switches to HIGH, we're not dispensing already and have enough balance.
+        if (!dispensing && checkBalance()) {
+          setDispensing(true);
+          setMotor(true);
+          Timer.setTimeout(reinterpret_cast<TimerCallback1>(setMotor), (uintptr_t) false, 1000);
+          Timer.setTimeout(reinterpret_cast<TimerCallback1>(setDispensing), (uintptr_t) false, 2000);
+        }
+      } else {
+        // Do stuff on button down
       }
+    }
+
+    void onCoinPulse() {
+      balance += COIN_PULSE_VALUE;
     }
 
     /**
@@ -138,18 +157,41 @@ namespace frame {
       return true;
     }
 
+    /**
+     * If COCKTAIL_PRIZE is set, balance will be checked for required amount.
+     * Else, dispensing is always enabled.
+     */
+    bool checkBalance() {
+#ifndef COCKTAIL_PRICE
+      return true;
+#else
+      Serial.print("Balance: ");
+      Serial.println(balance);
+
+      // Hopefully, this will not interfere with the interrupt increasing the balance.
+      if (balance >= COCKTAIL_PRICE) {
+        balance -= COCKTAIL_PRICE;
+        return true;
+      }
+      return false;
+#endif
+    }
+
+    // Setters
+    // ---------------------------------------------------------------------------------------------------------------------------
+
     void setDispensing(bool active) {
       dispensing = active;
       digitalWrite(PIN_VALVE, !active);   // Relays are active low
       statusBlinkTime = active ? BLINK_TIME_DISPENSING : BLINK_TIME_DEFAULT;
-      Serial.print("Dispensing ");
+      Serial.print("Dispensing: ");
       Serial.println(active ? "start" : "end");
     }
 
     void setMotor(bool active) {
       motorActive = active;
       digitalWrite(PIN_MOTOR, !active);   // Relays are active low
-      Serial.print("MotorActive ");
+      Serial.print("MotorActive: ");
       Serial.println(active ? "true" : "false");
     }
 
@@ -159,6 +201,9 @@ namespace frame {
         digitalWrite(elChannels[i], active);
       }
     }
+
+    // Light show
+    // ---------------------------------------------------------------------------------------------------------------------------
 
     /**
      * A rudimentary light show by switching on 1 EL channel at a time.
