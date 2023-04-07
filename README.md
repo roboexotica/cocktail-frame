@@ -19,7 +19,7 @@ The cocktail frame consists of a welded steel frame, big enough to enclose a DIN
 * wires and silicone tubes 
 
 ## Installation
-This project can either be built with the [Arduino IDE](https://www.arduino.cc/en/software) or with [Platform.IO](https://docs.platformio.org/en/latest/core/installation/).
+This project can either be built with the [Arduino IDE](https://www.arduino.cc/en/software) or with [PlatformIO](https://docs.platformio.org/en/latest/core/installation/).
 Follow all the required steps on either website to complete the installation.
 
 Check out or download the repository. It doesn't require any additional libraries. Arduino should know what to do with the _.ino_ file.
@@ -54,7 +54,7 @@ To upload the code to your device, select _"PlatformIO Upload | uno"_ in the con
 * Decide if we want to add a coin acceptor, Wi-Fi, GPS, AI, Diesel engine or a second cocktail choice.
 
 ## Contributors
-https://github.com/amalettomat
-https://github.com/reinbert
+* https://github.com/amalettomat
+* https://github.com/reinbert
 
-P.S.: There's also the _Roboexotica Stammtisch_ each second Monday after a full moon at [Metalab](https://metalab.at/). Please email [roboexotica@reinbert.net](roboexotica@reinbert.net) for the exact date.
+P.S.: There's also the _Roboexotica Stammtisch_ each second Monday after a full moon at [Metalab](https://metalab.at/). Please email [roboexotica@reinbert.net](mailto:roboexotica@reinbert.net) for the exact date.
