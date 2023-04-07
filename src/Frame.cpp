@@ -7,6 +7,8 @@
 #define BLINK_TIME_DEFAULT 500      // 2 different blink times depending on dispensing status
 #define BLINK_TIME_DISPENSING 200
 #define EL_EFFECT_TIME 100          // EL channels effect frame time
+#define COIN_PULSE_CHECK_TIME 5     // Short interval while we're expecting a pulse
+#define COIN_PULSE_CHECK_TIMEOUT 30 // Longer timeout after we detected a pulse
 
 #define EL_CHANNEL_A 2        // This is also an interrupt pin.
 #define EL_CHANNEL_B 3
@@ -21,11 +23,11 @@
 #define PIN_MOTOR 11          // Relays for vending
 #define PIN_VALVE 12          // -||-
 #define PIN_BUTTON 19
-#define PIN_COIN_PULSE 18     // Problem: Arduino only has interrupts on pin 2 & 3. But they're already occupied by the EL board :-/
+#define PIN_COIN_PULSE 18     // A pulse occurred, if pin switches from HIGH to LOW,
 
 // Uncomment 'COCKTAIL_PRICE' to enable monetization.
-//#define COCKTAIL_PRICE 100
-#define COIN_PULSE_VALUE 10
+//#define COCKTAIL_PRICE 100  // In cents.
+#define COIN_PULSE_VALUE 10   // Each pulse from the coin acceptor is worth that many cents.
 
 namespace frame {
 
@@ -42,7 +44,7 @@ namespace frame {
 
     void setupPins() {
       // Initialize the El Escudo channels A to F (2-9).
-      for (int i = 0; i < EL_CHANNELS; i++) {
+      for (uint8_t i = 0; i < EL_CHANNELS; i++) {
         pinMode(elChannels[i], OUTPUT);
       }
       setAllChannels(false);
@@ -63,12 +65,19 @@ namespace frame {
     }
 
     void setupInterrupts() {
-      attachInterrupt(digitalPinToInterrupt(PIN_COIN_PULSE), onCoinPulse, FALLING);
+#ifdef COCKTAIL_PRICE
+      // Removed, because Arduino Uno doesn't have any spare interrupt pins left. (Because pins 2 & 3 are occupied by EL Escudo header.)
+//      attachInterrupt(digitalPinToInterrupt(PIN_COIN_PULSE), onCoinPulse, FALLING);
+#endif
     }
 
     void setupTimers() {
       Timer.setInterval(onTick, FRAME_TIME, -1, 100);
       Timer.setInterval(onElEffect, EL_EFFECT_TIME, -1);
+#ifdef COCKTAIL_PRICE
+      // Start coin pulse checking if COCKTAIL_PRICE (and therefore monetization) is set.
+      Timer.setTimeout(reinterpret_cast<TimerCallback1>(onCheckCoinPulse), (uintptr_t) true, COIN_PULSE_CHECK_TIME);
+#endif
     }
 
     void setup() {
@@ -109,7 +118,7 @@ namespace frame {
      * Button changed state to 'state'.
      */
     void onButton(bool state) {
-      // Button up
+      // 'state' == HIGH -> button up
       if (state) {
         // Start dispensing if button state switches to HIGH, we're not dispensing already and have enough balance.
         if (!dispensing && checkBalance()) {
@@ -121,6 +130,27 @@ namespace frame {
       } else {
         // Do stuff on button down
       }
+    }
+
+    /**
+     * Checks coin pulse pin repeatedly. Param state defines whether we're expecting a signal or are in cooldown.
+     */
+    void onCheckCoinPulse(bool state) {
+      // If pin is low, we detected a coin pulse.
+      bool value = digitalRead(PIN_COIN_PULSE);
+      if (!value) {
+        // If we're waiting for this pulse, call `onCoinPulse()` and set cooldown timeout.
+        if (state) {
+          onCoinPulse();
+          Timer.setTimeout(reinterpret_cast<TimerCallback1>(onCheckCoinPulse), (uintptr_t) false, COIN_PULSE_CHECK_TIMEOUT);
+          return;
+        }
+        // Else, the pin is low, but we're not waiting for it -> We need to adjust the timing.
+        // Either by setting the coin acceptor's speed setting to FAST, or by increasing the cooldown period.
+        Serial.println("Timing error! After the cool down period, the coin pulse pin is still LOW. Adjust COIN_PULSE_CHECK_TIMEOUT.");
+      }
+      // Check pin again after COIN_PULSE_CHECK_TIME.
+      Timer.setTimeout(reinterpret_cast<TimerCallback1>(onCheckCoinPulse), (uintptr_t) true, COIN_PULSE_CHECK_TIME);
     }
 
     void onCoinPulse() {
@@ -197,7 +227,7 @@ namespace frame {
 
     void setAllChannels(bool active) {
       // Set all EL channels to 'active'.
-      for (int i = 0; i < EL_CHANNELS; i++) {
+      for (uint8_t i = 0; i < EL_CHANNELS; i++) {
         digitalWrite(elChannels[i], active);
       }
     }
@@ -209,7 +239,7 @@ namespace frame {
      * A rudimentary light show by switching on 1 EL channel at a time.
      */
     void onElEffect() {
-      for (int i = 0; i < EL_CHANNELS; i++) {
+      for (uint8_t i = 0; i < EL_CHANNELS; i++) {
         digitalWrite(elChannels[i], i == choreography % EL_CHANNELS);
       }
       choreography++;

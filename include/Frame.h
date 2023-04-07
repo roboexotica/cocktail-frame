@@ -20,6 +20,7 @@ namespace frame {
     void onStatus(bool value);
     void onTick();
     void onButton(bool state);
+    void onCheckCoinPulse(bool state);
     void onCoinPulse();
     bool checkButton(uint8_t pin, bool &state);
     bool checkBalance();
