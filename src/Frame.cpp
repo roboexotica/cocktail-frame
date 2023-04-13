@@ -1,4 +1,4 @@
-#include "../include/Frame.h"
+#include "Frame.h"
 #include <Arduino.h>
 #include <Timer.h>
 
@@ -20,13 +20,13 @@
 #define EL_CHANNEL_H 9
 #define EL_CHANNELS 8
 #define LED_STATUS 10         // El Escudo Dos LED
-#define PIN_MOTOR 11          // Relays for vending
+#define PIN_PUMP 11           // Relays for vending
 #define PIN_VALVE 12          // -||-
-#define PIN_BUTTON 19
+#define PIN_BUTTON 19         // Button 'up' starts dispensing if there's enough money in 'balance' (or COCKTAIL_PRICE is undefined).
 #define PIN_COIN_PULSE 18     // A pulse occurred, if pin switches from HIGH to LOW,
 
 // Uncomment 'COCKTAIL_PRICE' to enable monetization.
-//#define COCKTAIL_PRICE 100  // In cents.
+#define COCKTAIL_PRICE 100    // In cents.
 #define COIN_PULSE_VALUE 10   // Each pulse from the coin acceptor is worth that many cents.
 
 namespace frame {
@@ -37,7 +37,7 @@ namespace frame {
                                        EL_CHANNEL_E, EL_CHANNEL_F, EL_CHANNEL_G, EL_CHANNEL_H};
     volatile uint32_t balance = 0;
     bool dispensing = false;
-    bool motorActive = false;
+    bool pumping = false;
 
     // Static Functions
     // ---------------------------------------------------------------------------------------------------------------------------
@@ -50,13 +50,13 @@ namespace frame {
       setAllChannels(false);
 
       pinMode(LED_STATUS, OUTPUT);
-      pinMode(PIN_MOTOR, OUTPUT);
+      pinMode(PIN_PUMP, OUTPUT);
       pinMode(PIN_VALVE, OUTPUT);
       pinMode(PIN_BUTTON, INPUT_PULLUP);
 
       onStatus(true);
       setDispensing(false);
-      setMotor(false);
+      setPumping(false);
     }
 
     void setupSerial() {
@@ -123,8 +123,8 @@ namespace frame {
         // Start dispensing if button state switches to HIGH, we're not dispensing already and have enough balance.
         if (!dispensing && checkBalance()) {
           setDispensing(true);
-          setMotor(true);
-          Timer.setTimeout(reinterpret_cast<TimerCallback1>(setMotor), (uintptr_t) false, 1000);
+          setPumping(true);
+          Timer.setTimeout(reinterpret_cast<TimerCallback1>(setPumping), (uintptr_t) false, 1000);
           Timer.setTimeout(reinterpret_cast<TimerCallback1>(setDispensing), (uintptr_t) false, 2000);
         }
       } else {
@@ -218,11 +218,11 @@ namespace frame {
       Serial.println(active ? "start" : "end");
     }
 
-    void setMotor(bool active) {
-      motorActive = active;
-      digitalWrite(PIN_MOTOR, !active);   // Relays are active low
-      Serial.print("MotorActive: ");
-      Serial.println(active ? "true" : "false");
+    void setPumping(bool active) {
+      pumping = active;
+      digitalWrite(PIN_PUMP, !active);   // Relays are active low
+      Serial.print("Pumping: ");
+      Serial.println(active ? "start" : "end");
     }
 
     void setAllChannels(bool active) {

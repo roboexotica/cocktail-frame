@@ -1,16 +1,14 @@
-/*
- * wiring:
- *
- * black = GND -
- * white = LED (button) +
- * red   = button to GND
- *
- */
-
 #ifndef COCKTAIL_FRAME_FRAME_H
 #define COCKTAIL_FRAME_FRAME_H
 
+#ifdef BUILD_ENV
+// PlatformIO only
 #include "Timer.h"
+#else
+// Arduino IDE can't find "Timer.h". Maybe it can find "../lib/Timer.h"?
+#include "../lib/Timer.h"
+#endif
+
 
 namespace frame {
 
@@ -26,7 +24,7 @@ namespace frame {
     bool checkBalance();
 
     void setDispensing(bool active);
-    void setMotor(bool active);
+    void setPumping(bool active);
     void setAllChannels(bool active);
     void onElEffect();
 
