@@ -1,6 +1,8 @@
 #include "Frame.h"
 #include <Arduino.h>
 #include <Timer.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 
 #define FRAME_TIME 20               // FPS = 1000 / FRAME_TIME
 #define BUTTON_TIMEOUT 100          // 100ms
@@ -22,8 +24,10 @@
 #define LED_STATUS 10         // El Escudo Dos LED
 #define PIN_PUMP 11           // Relays for vending
 #define PIN_VALVE 12          // -||-
-#define PIN_BUTTON 19         // Button 'up' starts dispensing if there's enough money in 'balance' (or COCKTAIL_PRICE is undefined).
-#define PIN_COIN_PULSE 18     // A pulse occurred, if pin switches from HIGH to LOW,
+// #define PIN_WIRE_SDA (18)  // Blocked, because of I²C.
+// #define PIN_WIRE_SCL (19)  // --|| --
+#define PIN_BUTTON 17         // Button 'up' starts dispensing if there's enough money in 'balance' (or COCKTAIL_PRICE is undefined).
+#define PIN_COIN_PULSE 16     // A pulse occurred, if pin switches from HIGH to LOW,
 
 // Uncomment 'COCKTAIL_PRICE' to enable monetization.
 #define COCKTAIL_PRICE 100    // In cents.
@@ -35,6 +39,9 @@ namespace frame {
     uint32_t choreography = 0;
     uint8_t elChannels[EL_CHANNELS] = {EL_CHANNEL_A, EL_CHANNEL_B, EL_CHANNEL_C, EL_CHANNEL_D,
                                        EL_CHANNEL_E, EL_CHANNEL_F, EL_CHANNEL_G, EL_CHANNEL_H};
+
+    LiquidCrystal_I2C *lcd;
+
     volatile uint32_t balance = 0;
     bool dispensing = false;
     bool pumping = false;
@@ -57,6 +64,13 @@ namespace frame {
       onStatus(true);
       setDispensing(false);
       setPumping(false);
+    }
+
+    void setupDisplay() {
+      lcd = new LiquidCrystal_I2C(0x27, 16, 2);
+      lcd->init();
+      lcd->backlight();
+      lcd->print("Hello, World!");
     }
 
     void setupSerial() {
@@ -82,6 +96,7 @@ namespace frame {
 
     void setup() {
       setupPins();
+      setupDisplay();
       setupSerial();
       setupInterrupts();
       setupTimers();
