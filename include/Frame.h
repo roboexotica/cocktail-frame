@@ -26,6 +26,8 @@ namespace frame {
     void setDispensing(bool active);
     void setPumping(bool active);
     void setAllChannels(bool active);
+    void updateDisplay();
+    void onUpdateDisplay();
     void onElEffect();
 
 } // frame

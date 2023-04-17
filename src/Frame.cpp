@@ -8,9 +8,11 @@
 #define BUTTON_TIMEOUT 100          // 100ms
 #define BLINK_TIME_DEFAULT 500      // 2 different blink times depending on dispensing status
 #define BLINK_TIME_DISPENSING 200
+#define COIN_PULSE_CHECK_TIME 5     // Short checking interval while we're expecting a pulse
+#define COIN_PULSE_CHECK_TIMEOUT 30 // Longer checking timeout after we detected a pulse
+#define COIN_PULSE_TIMEOUT 200      // Timeout after pulse was discovered
+#define DISPLAY_UPDATE_TIME 200     // Display update time
 #define EL_EFFECT_TIME 100          // EL channels effect frame time
-#define COIN_PULSE_CHECK_TIME 5     // Short interval while we're expecting a pulse
-#define COIN_PULSE_CHECK_TIMEOUT 30 // Longer timeout after we detected a pulse
 
 #define EL_CHANNEL_A 2        // This is also an interrupt pin.
 #define EL_CHANNEL_B 3
@@ -41,10 +43,15 @@ namespace frame {
                                        EL_CHANNEL_E, EL_CHANNEL_F, EL_CHANNEL_G, EL_CHANNEL_H};
 
     LiquidCrystal_I2C *lcd;
+    uint32_t lcdFrame = 0;
+    String countingAnimation[6]{"[   ", " _  ", "  _ ", "   ]", "  _ ", " _  "};
+    byte euro[8] = {B01110, B10001, B11100, B10000, B11100, B10001, B01110,};
 
-    volatile uint32_t balance = 0;
+    volatile uint32_t balance = 0;     // $$$
+    volatile uint32_t pulseTime = 0;   // The timestamp, the last coin impulse was received.
     bool dispensing = false;
     bool pumping = false;
+    bool counting = false;
 
     // Static Functions
     // ---------------------------------------------------------------------------------------------------------------------------
@@ -69,8 +76,9 @@ namespace frame {
     void setupDisplay() {
       lcd = new LiquidCrystal_I2C(0x27, 16, 2);
       lcd->init();
+      lcd->createChar(0, euro);
       lcd->backlight();
-      lcd->print("Hello, World!");
+      updateDisplay();
     }
 
     void setupSerial() {
@@ -87,6 +95,7 @@ namespace frame {
 
     void setupTimers() {
       Timer.setInterval(onTick, FRAME_TIME, -1, 100);
+      Timer.setInterval(onUpdateDisplay, DISPLAY_UPDATE_TIME, -1);
       Timer.setInterval(onElEffect, EL_EFFECT_TIME, -1);
 #ifdef COCKTAIL_PRICE
       // Start coin pulse checking if COCKTAIL_PRICE (and therefore monetization) is set.
@@ -127,6 +136,23 @@ namespace frame {
       if (checkButton(PIN_BUTTON, state)) {
         onButton(state);
       }
+
+      const uint32_t now = millis();
+
+      // While counting, we wait for the timeout
+      if (counting) {
+        if (pulseTime + COIN_PULSE_TIMEOUT < now) {
+          pulseTime = 0;
+          counting = false;
+          updateDisplay();
+        }
+      } else {
+        // Else, we wait for pulseTime to be set.
+        if (pulseTime) {
+          counting = true;
+          updateDisplay();
+        }
+      }
     }
 
     /**
@@ -141,6 +167,7 @@ namespace frame {
           setPumping(true);
           Timer.setTimeout(reinterpret_cast<TimerCallback1>(setPumping), (uintptr_t) false, 1000);
           Timer.setTimeout(reinterpret_cast<TimerCallback1>(setDispensing), (uintptr_t) false, 2000);
+          updateDisplay();
         }
       } else {
         // Do stuff on button down
@@ -170,6 +197,7 @@ namespace frame {
 
     void onCoinPulse() {
       balance += COIN_PULSE_VALUE;
+      pulseTime = millis();
     }
 
     /**
@@ -246,6 +274,39 @@ namespace frame {
         digitalWrite(elChannels[i], active);
       }
     }
+
+    // Display
+    // ---------------------------------------------------------------------------------------------------------------------------
+    void updateDisplay() {
+      lcd->setCursor(0, 0);
+      lcd->print(" Cocktail Frame ");
+      lcd->setCursor(0, 1);
+      if (balance) {
+        lcd->print("Balance: ");
+        // TODO: That needs some nicer formatting
+        lcd->print(balance / 100);
+        lcd->print(",");
+        lcd->print(balance % 100);
+        lcd->print(" ");
+        lcd->write((byte) 0);   // € sign
+        lcd->print(" ");
+      } else {
+        lcd->println("Roboexotica Crew");
+      }
+      lcd->flush();
+    }
+
+    void onUpdateDisplay() {
+      if (counting) {
+        lcd->setCursor(0, 1);
+        lcd->print("Balance: ");
+        lcd->print(countingAnimation[lcdFrame % 6]);
+        lcd->print("    "); // 5 more spaces to clear the screen
+        lcd->flush();
+      }
+      lcdFrame++;
+    }
+
 
     // Light show
     // ---------------------------------------------------------------------------------------------------------------------------
