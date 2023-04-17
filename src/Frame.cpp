@@ -45,7 +45,7 @@ namespace frame {
     LiquidCrystal_I2C *lcd;
     uint32_t lcdFrame = 0;
     String countingAnimation[6]{"[   ", " _  ", "  _ ", "   ]", "  _ ", " _  "};
-    byte euro[8] = {B01110, B10001, B11100, B10000, B11100, B10001, B01110,};
+    byte euro[8] = {B00110, B01001, B11100, B01000, B11100, B01001, B00110,};
 
     volatile uint32_t balance = 0;     // $$$
     volatile uint32_t pulseTime = 0;   // The timestamp, the last coin impulse was received.
@@ -282,12 +282,9 @@ namespace frame {
       lcd->print(" Cocktail Frame ");
       lcd->setCursor(0, 1);
       if (balance) {
-        lcd->print("Balance: ");
-        // TODO: That needs some nicer formatting
-        lcd->print(balance / 100);
-        lcd->print(",");
-        lcd->print(balance % 100);
-        lcd->print(" ");
+        char buffer[20];
+        sprintf(buffer, "Balance: %lu,%02lu", balance / 100, balance % 100);
+        lcd->print(buffer);
         lcd->write((byte) 0);   // € sign
         lcd->print(" ");
       } else {
