@@ -22,7 +22,7 @@ The cocktail frame consists of a welded steel frame, big enough to enclose a DIN
 This project can either be built with the [~~Arduino IDE*~~](https://www.arduino.cc/en/software) or with [PlatformIO](https://docs.platformio.org/en/latest/core/installation/).
 Follow all the required steps on either website to complete the IDE installation.
 
-### Arduino
+### Arduino IDE
 *Arduino doesn't work atm, sry
 
 Check out or download the repository. Arduino should know what to do with the _.ino_ file.
@@ -42,6 +42,9 @@ To fix it, open _workspace.xml_ and change `PROFILE_NAME` and `CONFIG_NAME` in `
   </configurations>
 </component>
 ```
+
+### VS Code
+Install VS Code. Navigate to extensions, search for "PlatformIO IDE", install it. Open the project, wait a moment until PlatformIO automatically configures the project. Use the top right check mark to Build or Upload the code. Automatically detects COM ports with connected Arduino.
 
 ## Build & Upload
 ### Arduino
