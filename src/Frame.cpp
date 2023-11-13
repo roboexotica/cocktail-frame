@@ -52,6 +52,7 @@ namespace frame {
     bool dispensing = false;
     bool pumping = false;
     bool counting = false;
+    bool dispenseEffect = false;
 
     // Static Functions
     // ---------------------------------------------------------------------------------------------------------------------------
@@ -71,6 +72,7 @@ namespace frame {
       onStatus(true);
       setDispensing(false);
       setPumping(false);
+      setDispenseEffect(false);
     }
 
     void setupDisplay() {
@@ -83,7 +85,7 @@ namespace frame {
 
     void setupSerial() {
       Serial.begin(115200);
-      Serial.println("\nCocktail Frame © Roboexotica 2023");
+      Serial.println(F("\nCocktail Frame - Roboexotica 2023"));
     }
 
     void setupInterrupts() {
@@ -165,8 +167,10 @@ namespace frame {
         if (!dispensing && checkBalance()) {
           setDispensing(true);
           setPumping(true);
+          setDispenseEffect(true);
           Timer.setTimeout(reinterpret_cast<TimerCallback1>(setPumping), (uintptr_t) false, 1000);
           Timer.setTimeout(reinterpret_cast<TimerCallback1>(setDispensing), (uintptr_t) false, 2000);
+          Timer.setTimeout(reinterpret_cast<TimerCallback1>(setDispenseEffect), (uintptr_t) false, 3000);
           updateDisplay();
         }
       } else {
@@ -189,7 +193,7 @@ namespace frame {
         }
         // Else, the pin is low, but we're not waiting for it -> We need to adjust the timing.
         // Either by setting the coin acceptor's speed setting to FAST, or by increasing the cooldown period.
-        Serial.println("Timing error! After the cool down period, the coin pulse pin is still LOW. Adjust COIN_PULSE_CHECK_TIMEOUT.");
+        Serial.println(F("Timing error! After the cool down period, the coin pulse pin is still LOW. Adjust COIN_PULSE_CHECK_TIMEOUT."));
       }
       // Check pin again after COIN_PULSE_CHECK_TIME.
       Timer.setTimeout(reinterpret_cast<TimerCallback1>(onCheckCoinPulse), (uintptr_t) true, COIN_PULSE_CHECK_TIME);
@@ -238,7 +242,7 @@ namespace frame {
 #ifndef COCKTAIL_PRICE
       return true;
 #else
-      Serial.print("Balance: ");
+      Serial.print(F("Balance: "));
       Serial.println(balance);
 
       // Hopefully, this will not interfere with the interrupt increasing the balance.
@@ -257,15 +261,19 @@ namespace frame {
       dispensing = active;
       digitalWrite(PIN_VALVE, !active);   // Relays are active low
       statusBlinkTime = active ? BLINK_TIME_DISPENSING : BLINK_TIME_DEFAULT;
-      Serial.print("Dispensing: ");
-      Serial.println(active ? "start" : "end");
+      Serial.print(F("Dispensing: "));
+      Serial.println(active ? F("start") : F("end"));
     }
 
     void setPumping(bool active) {
       pumping = active;
       digitalWrite(PIN_PUMP, !active);   // Relays are active low
-      Serial.print("Pumping: ");
-      Serial.println(active ? "start" : "end");
+      Serial.print(F("Pumping: "));
+      Serial.println(active ? F("start") : F("end"));
+    }
+
+    void setDispenseEffect(bool active) {
+      dispenseEffect = active;
     }
 
     void setAllChannels(bool active) {
@@ -279,7 +287,7 @@ namespace frame {
     // ---------------------------------------------------------------------------------------------------------------------------
     void updateDisplay() {
       lcd->setCursor(0, 0);
-      lcd->print(" Cocktail Frame ");
+      lcd->print(F(" Cocktail Frame "));
       lcd->setCursor(0, 1);
       if (balance) {
         char buffer[20];
@@ -288,7 +296,7 @@ namespace frame {
         lcd->write((byte) 0);   // € sign
         lcd->print(" ");
       } else {
-        lcd->println("Roboexotica Crew");
+        lcd->println(F("Roboexotica Crew"));
       }
       lcd->flush();
     }
@@ -296,7 +304,7 @@ namespace frame {
     void onUpdateDisplay() {
       if (counting) {
         lcd->setCursor(0, 1);
-        lcd->print("Balance: ");
+        lcd->print(F("Balance: "));
         lcd->print(countingAnimation[lcdFrame % 6]);
         lcd->print("    "); // 5 more spaces to clear the screen
         lcd->flush();
@@ -312,8 +320,16 @@ namespace frame {
      * A rudimentary light show by switching on 1 EL channel at a time.
      */
     void onElEffect() {
-      for (uint8_t i = 0; i < EL_CHANNELS; i++) {
-        digitalWrite(elChannels[i], i == choreography % EL_CHANNELS);
+      if (dispenseEffect) {
+        for (uint8_t i = 0; i < EL_CHANNELS; i++) {
+          // Blink every second channel.
+          digitalWrite(elChannels[i], (choreography + i) % 2);
+        }
+      } else {
+        for (uint8_t i = 0; i < EL_CHANNELS; i++) {
+          // Cycle through all channels
+          digitalWrite(elChannels[i], i == choreography % EL_CHANNELS);
+        }
       }
       choreography++;
     }
