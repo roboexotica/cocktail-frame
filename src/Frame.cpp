@@ -28,6 +28,7 @@
 #define PIN_VALVE 12          // -||-
 // #define PIN_WIRE_SDA (18)  // Blocked, because of I²C.
 // #define PIN_WIRE_SCL (19)  // --|| --
+#define PIN_BUTTON_LED A1     //
 #define PIN_BUTTON 17         // Button 'up' starts dispensing if there's enough money in 'balance' (or COCKTAIL_PRICE is undefined).
 #define PIN_COIN_PULSE 16     // A pulse occurred, if pin switches from HIGH to LOW,
 
@@ -67,6 +68,7 @@ namespace frame {
       pinMode(LED_STATUS, OUTPUT);
       pinMode(PIN_PUMP, OUTPUT);
       pinMode(PIN_VALVE, OUTPUT);
+      pinMode(PIN_BUTTON_LED, OUTPUT);
       pinMode(PIN_BUTTON, INPUT_PULLUP);
 
       onStatus(true);
@@ -141,6 +143,9 @@ namespace frame {
 
       const uint32_t now = millis();
 
+      bool buttonLedActive = !dispensing && checkBalance();
+      digitalWrite(PIN_BUTTON_LED, buttonLedActive);
+
       // While counting, we wait for the timeout
       if (counting) {
         if (pulseTime + COIN_PULSE_TIMEOUT < now) {
@@ -164,7 +169,7 @@ namespace frame {
       // 'state' == HIGH -> button up
       if (state) {
         // Start dispensing if button state switches to HIGH, we're not dispensing already and have enough balance.
-        if (!dispensing && checkBalance()) {
+        if (!dispensing && deductBalance()) {
           setDispensing(true);
           setPumping(true);
           setDispenseEffect(true);
@@ -235,10 +240,22 @@ namespace frame {
     }
 
     /**
+     * Compares the balance to the cocktail price and returns true if balance is >= price.
+     * If COCKTAIL_PRICE is not set, it always returns true.
+     */
+    bool checkBalance() {
+#ifndef COCKTAIL_PRICE
+      return true;
+#else
+      return balance >= COCKTAIL_PRICE;
+#endif
+    }
+
+    /**
      * If COCKTAIL_PRIZE is set, balance will be checked for required amount.
      * Else, dispensing is always enabled.
      */
-    bool checkBalance() {
+    bool deductBalance() {
 #ifndef COCKTAIL_PRICE
       return true;
 #else
@@ -246,11 +263,11 @@ namespace frame {
       Serial.println(balance);
 
       // Hopefully, this will not interfere with the interrupt increasing the balance.
-      if (balance >= COCKTAIL_PRICE) {
+      bool value = checkBalance();
+      if (value) {
         balance -= COCKTAIL_PRICE;
-        return true;
       }
-      return false;
+      return value;
 #endif
     }
 

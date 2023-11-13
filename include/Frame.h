@@ -22,6 +22,7 @@ namespace frame {
     void onCoinPulse();
     bool checkButton(uint8_t pin, bool &state);
     bool checkBalance();
+    bool deductBalance();
 
     void setDispensing(bool active);
     void setPumping(bool active);
