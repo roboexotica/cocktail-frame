@@ -75,6 +75,7 @@ namespace frame {
       setDispensing(false);
       setPumping(false);
       setDispenseEffect(false);
+      digitalWrite(PIN_BUTTON_LED, LOW);
     }
 
     void setupDisplay() {
@@ -141,10 +142,10 @@ namespace frame {
         onButton(state);
       }
 
-      const uint32_t now = millis();
-
       bool buttonLedActive = !dispensing && checkBalance();
       digitalWrite(PIN_BUTTON_LED, buttonLedActive);
+
+      const uint32_t now = millis();
 
       // While counting, we wait for the timeout
       if (counting) {
